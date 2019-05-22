@@ -1,1 +1,0 @@
-DIR_PAGES = 'pages'

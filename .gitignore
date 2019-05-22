@@ -94,3 +94,5 @@ Screenshots/
 .vscode
 typesheds/
 *.db
+
+publish/

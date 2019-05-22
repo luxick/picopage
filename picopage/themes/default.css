@@ -1,0 +1,12 @@
+body {
+}
+
+.content{
+    border: 1px solid gray;
+    border-radius: 5px;
+    margin: 5px;
+    padding: 5px;
+}
+.content > h1{
+    margin: 10px 0;
+}
