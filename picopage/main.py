@@ -1,4 +1,5 @@
 import argparse
+import errno
 import os
 import shutil
 
@@ -19,7 +20,7 @@ ENV = Environment(loader=FileSystemLoader(str(TEMPLATES_PATH)))
 
 @dataclass
 class Article:
-    file_name: str
+    stub: str
     title: str
     created: str
     content: str
@@ -45,20 +46,19 @@ class Site:
 
 class PicoPage:
     def __init__(self, path, out_path=None):
-        self.input_path = path
-        self.out_path = out_path
+        self.in_path = Path(path)
 
-        conf = self.read_config(self.input_path)
-        if "theme" not in conf:
-            conf["theme"] = "default.css"
-        else:
-            conf["theme"] = f"{conf['theme']}.css"
-        self.theme_path = THEMES_PATH / conf["theme"]
         if out_path is None:
-            self.out_path = self.input_path.parent / "publish"
+            self.out_path = Path(self.in_path.parent / "publish")
+        else:
+            self.out_path = Path(out_path)
 
-        pages = self.read_pages(self.input_path)
+        conf = self.read_config(self.in_path)
+        conf["theme"] = f"{conf.get('theme', 'default')}.css"
+
+        pages = self.read_pages(self.in_path)
         self.site = Site(conf["title"], conf["author"], conf["theme"], pages)
+
         article_count = len([a for pages in self.site.pages for a in pages.articles])
         print(f"Read {len(self.site.pages)} pages with {article_count} articles")
 
@@ -83,7 +83,7 @@ class PicoPage:
             pass
 
         return Article(content="",
-                       file_name="",
+                       stub="",
                        title=title,
                        created=created,
                        updated=updated)
@@ -117,7 +117,7 @@ class PicoPage:
                     stub="index",
                     pos=0,
                     is_index=True,
-                    articles=sorted(articles, key=lambda a: a.created))
+                    articles=sorted(articles, key=lambda a: a.stub))
         pages.append(page)
 
         # Parse sub pages
@@ -135,7 +135,7 @@ class PicoPage:
             page = Page(name=conf.get("title", sub.stem),
                         stub=sub.stem,
                         pos=conf.get("position", 100),
-                        articles=sorted(articles, key=lambda post: post.created))
+                        articles=sorted(articles, key=lambda a: a.stub))
             pages.append(page)
 
         return sorted(pages, key=lambda p: p.pos)
@@ -150,14 +150,27 @@ class PicoPage:
         for name, data in self.read_files(path):
             html = md.convert(data)
             article = self.parse_metadata(md)
-            article.file_name = name
+            article.stub = name.replace(" ", "").lower()
             article.content = html
             yield article
+
+    def copy_static(self):
+        src = str(self.in_path)
+        dest = str(self.out_path)
+        try:
+            shutil.copytree(src, dest, ignore=shutil.ignore_patterns("*.md", "*.yaml"))
+        except OSError as e:
+            # If the error was caused because the source wasn't a directory
+            if e.errno == errno.ENOTDIR:
+                shutil.copy(src, dest)
+            else:
+                print('Directory not copied. Error: %s' % e)
 
     def write_output(self):
         if Path.exists(self.out_path):
             shutil.rmtree(self.out_path)
-        Path.mkdir(self.out_path)
+        # self.out_path.mkdir()
+        self.copy_static()
 
         template = ENV.get_template("page.html")
 
@@ -170,7 +183,16 @@ class PicoPage:
                 "current_page": page
             }
             html = template.render(page_vars)
-            path = self.out_path / f"{page.stub}.html"
+
+            path = self.out_path
+            if page.is_index:
+                path = path / "index.html"
+            else:
+                path = path / page.stub / "index.html"
+
+            if not Path(path.parent).exists():
+                Path(path.parent).mkdir()
+
             with open(str(path), "w") as outfile:
                 outfile.write(html)
 

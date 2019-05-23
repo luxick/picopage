@@ -1,26 +1,32 @@
+{% if current_page.is_index %}
+    {% set base = "" %}
+{% else %}
+    {% set base = "../" %}
+{% endif %}
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>{{ site_title }} - {{ page_title }}</title>
-    <link href="{{ theme }}" rel="stylesheet" type="text/css">
+    <link href="{{ base }}{{ theme }}" rel="stylesheet" type="text/css">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 </head>
 <body>
     <ul>
         {% for page in pages %}
-
             {% if page.is_index %}
-                <li><a href="{{ page.stub }}.html">{{ site_title }}</a></li>
+        <li><a href="{{ base }}">{{ site_title }}</a></li>
             {% else %}
-                <li><a href="{{ page.stub }}.html">{% if current_page.stub == page.stub %}>> {% endif %}{{ page.name }}</a></li>
+        <li><a href="{{ base }}{{ page.stub }}">{% if current_page.stub == page.stub %}>> {% endif %}{{ page.name }}</a></li>
             {% endif %}
-
         {% endfor %}
     </ul>
     <div class="content">
         {% for article in current_page.articles %}
-            {{ article.content}}
+            <section id="{{ article.stub }}">
+                {{ article.content}}
+            </section>
         {% endfor %}
     </div>
     <div class="footer">
